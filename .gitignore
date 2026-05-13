@@ -1,0 +1,24 @@
+# Terraform state — 로컬 state 파일은 커밋하지 않음
+*.tfstate
+*.tfstate.backup
+
+# 작업 디렉토리 (terraform init 결과물)
+**/.terraform/
+
+# 크래시 로그
+crash.log
+crash.*.log
+
+# 민감한 변수 파일 (필요 시 *.tfvars를 추가)
+# *.tfvars
+# *.tfvars.json
+
+# provider lock file은 커밋 권장 (아래 줄 주석 유지)
+# .terraform.lock.hcl
+
+# macOS
+.DS_Store
+
+# intelliJ
+.idea
+.idea/*
