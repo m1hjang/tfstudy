@@ -22,3 +22,7 @@ crash.*.log
 # intelliJ
 .idea
 .idea/*
+
+# claude
+.claude
+.claude/*

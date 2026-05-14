@@ -49,14 +49,16 @@ resource "aws_instance" "db" {
     encrypted   = true
   }
 
+/* 추가 볼륨은 아직...
   ebs_block_device {
     device_name = "/dev/sdb"
     volume_type = "gp3"
     volume_size = var.data_volume_size_gb
     encrypted   = true
+    delete_on_termination = false
   }
-
-  tags = {
+ */  
+ tags = {
     Name    = "${var.project}-${var.env}-db"
     Project = var.project
     Env     = var.env

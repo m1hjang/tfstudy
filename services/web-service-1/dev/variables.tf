@@ -13,7 +13,6 @@ variable "env" {
 
 variable "ami_id" {
   type        = string
-  description = "EC2 AMI ID (app/db 동일 AMI 사용)"
 }
 
 variable "key_name" {
@@ -41,10 +40,18 @@ variable "db_instance_type" {
 
 variable "db_port" {
   type    = number
-  default = 5432
+  default = 3306
 }
 
 variable "db_volume_size_gb" {
   type    = number
-  default = 50
+  default = 1
+}
+
+variable "ACCESS_KEY" {
+  type = string
+}
+
+variable "SECRET_KEY" {
+  type = string
 }

@@ -8,7 +8,7 @@ terraform {
     }
   }
 
-  # ── Local state (현재) ──────────────────────────────────────────────────────
+  # ── Local state ──────────────────────────────────────────────────────
   backend "local" {
     path = "terraform.tfstate"
   }
@@ -25,9 +25,8 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  # 자격증명은 환경변수로 주입:
-  #   export AWS_ACCESS_KEY_ID="..."
-  #   export AWS_SECRET_ACCESS_KEY="..."
+  access_key = var.ACCESS_KEY
+  secret_key = var.SECRET_KEY
 }
 
 module "network" {

@@ -22,10 +22,12 @@ terraform {
 }
 
 provider "aws" {
+  access_key = var.ACCESS_KEY
+  secret_key = var.SECRET_KEY
   region = var.aws_region
 }
 
-# shared/dev의 state에서 VPC 정보를 읽어옴
+
 data "terraform_remote_state" "shared" {
   backend = "local"
   config = {

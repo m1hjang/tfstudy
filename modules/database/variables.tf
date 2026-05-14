@@ -33,12 +33,12 @@ variable "key_name" {
 
 variable "db_port" {
   type    = number
-  default = 5432
+  default = 3306
 }
 
 variable "data_volume_size_gb" {
   type    = number
-  default = 50
+  default = 1
 }
 
 variable "ssh_allowed_cidr" {
