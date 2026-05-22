@@ -45,3 +45,9 @@ variable "ssh_allowed_cidr" {
   type    = string
   default = "10.0.0.0/8"
 }
+
+variable "bastion_security_group_id" {
+  type        = string
+  default     = null
+  description = "Bastion SG ID — 제공 시 Bastion → DB EC2 SSH 룰(SG 기반)을 추가"
+}

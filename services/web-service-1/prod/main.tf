@@ -42,29 +42,31 @@ data "terraform_remote_state" "shared" {
 module "compute" {
   source = "../../../modules/compute"
 
-  project            = var.project
-  env                = var.env
-  vpc_id             = data.terraform_remote_state.shared.outputs.vpc_id
-  public_subnet_ids  = data.terraform_remote_state.shared.outputs.public_subnet_ids
-  private_subnet_ids = data.terraform_remote_state.shared.outputs.private_subnet_ids
-  instance_type      = var.app_instance_type
-  ami_id             = var.ami_id
-  key_name           = var.key_name
-  app_port           = var.app_port
-  instance_count     = var.app_instance_count
+  project                   = var.project
+  env                       = var.env
+  vpc_id                    = data.terraform_remote_state.shared.outputs.vpc_id
+  public_subnet_ids         = data.terraform_remote_state.shared.outputs.public_subnet_ids
+  private_subnet_ids        = data.terraform_remote_state.shared.outputs.private_subnet_ids
+  instance_type             = var.app_instance_type
+  ami_id                    = var.ami_id
+  key_name                  = var.key_name
+  app_port                  = var.app_port
+  instance_count            = var.app_instance_count
+  bastion_security_group_id = data.terraform_remote_state.shared.outputs.bastion_security_group_id
 }
 
 module "database" {
   source = "../../../modules/database"
 
-  project               = var.project
-  env                   = var.env
-  vpc_id                = data.terraform_remote_state.shared.outputs.vpc_id
-  private_subnet_ids    = data.terraform_remote_state.shared.outputs.private_subnet_ids
-  app_security_group_id = module.compute.app_security_group_id
-  instance_type         = var.db_instance_type
-  ami_id                = var.ami_id
-  key_name              = var.key_name
-  db_port               = var.db_port
-  data_volume_size_gb   = var.db_volume_size_gb
+  project                   = var.project
+  env                       = var.env
+  vpc_id                    = data.terraform_remote_state.shared.outputs.vpc_id
+  private_subnet_ids        = data.terraform_remote_state.shared.outputs.private_subnet_ids
+  app_security_group_id     = module.compute.app_security_group_id
+  bastion_security_group_id = data.terraform_remote_state.shared.outputs.bastion_security_group_id
+  instance_type             = var.db_instance_type
+  ami_id                    = var.ami_id
+  key_name                  = var.key_name
+  db_port                   = var.db_port
+  data_volume_size_gb       = var.db_volume_size_gb
 }
