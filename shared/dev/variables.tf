@@ -15,17 +15,14 @@ variable "vpc_cidr" {
   type = string
 }
 
-variable "public_subnet_cidrs" {
-  type = list(string)
+variable "public_subnets" {
+  type        = map(string)
+  description = "key = CIDR, value = AZ"
 }
 
-variable "private_subnet_cidrs" {
-  type = list(string)
-}
-
-variable "azs" {
-  type    = list(string)
-  default = ["ap-northeast-2a", "ap-northeast-2c"]
+variable "private_subnets" {
+  type        = map(string)
+  description = "key = CIDR, value = AZ"
 }
 
 variable "ACCESS_KEY" {

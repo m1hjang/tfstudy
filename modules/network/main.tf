@@ -21,14 +21,14 @@ resource "aws_internet_gateway" "main" {
 }
 
 resource "aws_subnet" "public" {
-  count                   = length(var.public_subnet_cidrs)
+  for_each                = var.public_subnets
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.public_subnet_cidrs[count.index]
-  availability_zone       = var.azs[count.index]
+  cidr_block              = each.key
+  availability_zone       = each.value
   map_public_ip_on_launch = true
 
   tags = {
-    Name    = "${var.project}-${var.env}-public-${count.index + 1}"
+    Name    = "${var.project}-${var.env}-public-${each.value}"
     Project = var.project
     Env     = var.env
     Tier    = "public"
@@ -36,13 +36,13 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  count             = length(var.private_subnet_cidrs)
+  for_each          = var.private_subnets
   vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_cidrs[count.index]
-  availability_zone = var.azs[count.index]
+  cidr_block        = each.key
+  availability_zone = each.value
 
   tags = {
-    Name    = "${var.project}-${var.env}-private-${count.index + 1}"
+    Name    = "${var.project}-${var.env}-private-${each.value}"
     Project = var.project
     Env     = var.env
     Tier    = "private"
@@ -50,25 +50,25 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  count  = length(var.public_subnet_cidrs)
-  domain = "vpc"
+  for_each = var.public_subnets
+  domain   = "vpc"
 
   tags = {
-    Name    = "${var.project}-${var.env}-nat-eip-${count.index + 1}"
+    Name    = "${var.project}-${var.env}-nat-eip-${each.value}"
     Project = var.project
     Env     = var.env
   }
 }
 
 resource "aws_nat_gateway" "main" {
-  count         = length(var.public_subnet_cidrs)
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
+  for_each      = var.public_subnets
+  allocation_id = aws_eip.nat[each.key].id
+  subnet_id     = aws_subnet.public[each.key].id
 
   depends_on = [aws_internet_gateway.main]
 
   tags = {
-    Name    = "${var.project}-${var.env}-nat-${count.index + 1}"
+    Name    = "${var.project}-${var.env}-nat-${each.value}"
     Project = var.project
     Env     = var.env
   }
@@ -90,29 +90,32 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public" {
-  count          = length(var.public_subnet_cidrs)
-  subnet_id      = aws_subnet.public[count.index].id
+  for_each       = var.public_subnets
+  subnet_id      = aws_subnet.public[each.key].id
   route_table_id = aws_route_table.public.id
 }
 
 resource "aws_route_table" "private" {
-  count  = length(var.private_subnet_cidrs)
-  vpc_id = aws_vpc.main.id
+  for_each = var.private_subnets
+  vpc_id   = aws_vpc.main.id
 
   route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+    cidr_block = "0.0.0.0/0"
+    # 같은 AZ의 NAT GW로 라우팅 (AZ당 트래픽 비용 최소화)
+    nat_gateway_id = aws_nat_gateway.main[
+      [for cidr, az in var.public_subnets : cidr if az == each.value][0]
+    ].id
   }
 
   tags = {
-    Name    = "${var.project}-${var.env}-private-rt-${count.index + 1}"
+    Name    = "${var.project}-${var.env}-private-rt-${each.value}"
     Project = var.project
     Env     = var.env
   }
 }
 
 resource "aws_route_table_association" "private" {
-  count          = length(var.private_subnet_cidrs)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
+  for_each       = var.private_subnets
+  subnet_id      = aws_subnet.private[each.key].id
+  route_table_id = aws_route_table.private[each.key].id
 }

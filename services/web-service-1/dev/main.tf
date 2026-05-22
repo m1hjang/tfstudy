@@ -12,14 +12,15 @@ terraform {
     path = "terraform.tfstate"
   }
 
-  # backend "s3" {
-  #   bucket         = "YOUR-TF-STATE-BUCKET"
-  #   key            = "services/web-service-1/dev/terraform.tfstate"
-  #   region         = "ap-northeast-2"
-  #   dynamodb_table = "terraform-state-lock"
-  #   encrypt        = true
-  # }
-}
+/*   backend "s3" {
+    bucket         = "tfstudy/web-service-1/dev/tfstate"
+    key            = "services/web-service-1/dev/terraform.tfstate"
+    region         = "ap-northeast-2"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+  }
+ */
+ }
 
 provider "aws" {
   access_key = var.ACCESS_KEY
@@ -37,7 +38,7 @@ data "terraform_remote_state" "shared" {
   # S3 backend로 이전 후 위 블록을 아래로 교체:
   # backend = "s3"
   # config = {
-  #   bucket = "YOUR-TF-STATE-BUCKET"
+  #   bucket = "tfstudy/web-service-1/dev/tfstate"
   #   key    = "shared/dev/terraform.tfstate"
   #   region = "ap-northeast-2"
   # }
