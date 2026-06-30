@@ -22,5 +22,5 @@ variable "public_subnets" {
 
 variable "private_subnets" {
   type        = map(string)
-  description = "key = CIDR, value = AZ"
+  description = "key = CIDR, value = AZ. All private subnets."
 }

@@ -1,0 +1,401 @@
+version: 1
+
+metadata:
+  name: web-service-1-dev
+  provider: aws
+  region: ap-northeast-2
+  terraform_root: services/web-service-1/dev
+  generated_at: 2026-06-30
+  description: >
+    web-service-1/dev 루트 모듈 기준 아키텍처.
+    네트워크/Bastion은 shared/dev 스택에서 remote_state로 참조하며,
+    Compute(ALB + App EC2)와 Database(DB EC2)는 이 스택에서 직접 관리한다.
+
+# ─────────────────────────────────────────────
+# STACKS  (Terraform root 단위)
+# ─────────────────────────────────────────────
+stacks:
+
+  - id: shared-dev
+    path: shared/dev
+    description: >
+      공유 인프라 스택. VPC, 서브넷, NAT GW, Bastion을 소유하며
+      web-service-1/dev에 remote_state output으로 값을 제공한다.
+
+  - id: web-service-1-dev
+    path: services/web-service-1/dev
+    description: >
+      서비스 스택. Compute(ALB + App EC2)와 Database(DB EC2)를 소유한다.
+      shared-dev 스택의 네트워크·Bastion SG를 참조한다.
+
+# ─────────────────────────────────────────────
+# MODULES
+# ─────────────────────────────────────────────
+modules:
+
+  - id: network
+    source: modules/network
+    stack: shared-dev
+    description: VPC, 서브넷(public/private), IGW, NAT GW, 라우팅 테이블
+
+  - id: bastion
+    source: modules/bastion
+    stack: shared-dev
+    description: Ansible control node 역할의 Bastion EC2. Public 서브넷에 배치.
+
+  - id: compute
+    source: modules/compute
+    stack: web-service-1-dev
+    description: ALB(public), App EC2(private), Security Groups, Target Group
+
+  - id: database
+    source: modules/database
+    stack: web-service-1-dev
+    description: DB EC2(private), DB Security Group
+
+# ─────────────────────────────────────────────
+# RESOURCES
+# ─────────────────────────────────────────────
+resources:
+
+  # ── Network ────────────────────────────────
+  - id: vpc
+    type: aws_vpc
+    module: network
+    name_pattern: "{project}-{env}-vpc"
+    description: 전체 인프라를 담는 VPC. DNS hostname/support 활성화.
+    location:
+      file: modules/network/main.tf
+      line: 1
+
+  - id: igw
+    type: aws_internet_gateway
+    module: network
+    name_pattern: "{project}-{env}-igw"
+    description: Public 서브넷에서 인터넷으로 나가는 게이트웨이.
+    location:
+      file: modules/network/main.tf
+      line: 13
+
+  - id: public-subnet
+    type: aws_subnet
+    subtype: public
+    module: network
+    name_pattern: "{project}-{env}-public-{az}"
+    description: >
+      AZ별 Public 서브넷(for_each). map_public_ip_on_launch=true.
+      ALB, Bastion, NAT GW가 이 서브넷에 배치된다.
+    cardinality: "1 per AZ (for_each)"
+    location:
+      file: modules/network/main.tf
+      line: 23
+
+  - id: private-subnet
+    type: aws_subnet
+    subtype: private
+    module: network
+    name_pattern: "{project}-{env}-private-{az}"
+    description: >
+      AZ별 Private 서브넷(for_each). App EC2, DB EC2가 이 서브넷에 배치된다.
+    cardinality: "1 per AZ (for_each)"
+    location:
+      file: modules/network/main.tf
+      line: 38
+
+  - id: eip-nat
+    type: aws_eip
+    module: network
+    name_pattern: "{project}-{env}-nat-eip-{az}"
+    description: NAT GW에 할당되는 Elastic IP. AZ별로 생성(for_each).
+    cardinality: "1 per AZ (for_each)"
+    location:
+      file: modules/network/main.tf
+      line: 52
+
+  - id: nat-gw
+    type: aws_nat_gateway
+    module: network
+    name_pattern: "{project}-{env}-nat-{az}"
+    description: >
+      AZ별 NAT GW(for_each). Public 서브넷에 위치하며 Private 서브넷의
+      아웃바운드 트래픽을 처리한다. AZ 내 트래픽 비용 최소화를 위해
+      같은 AZ의 NAT GW로 라우팅한다.
+    cardinality: "1 per AZ (for_each)"
+    location:
+      file: modules/network/main.tf
+      line: 63
+
+  - id: route-table-public
+    type: aws_route_table
+    subtype: public
+    module: network
+    name_pattern: "{project}-{env}-public-rt"
+    description: Public 서브넷 공용 라우팅 테이블. 0.0.0.0/0 → IGW.
+    location:
+      file: modules/network/main.tf
+      line: 77
+
+  - id: route-table-private
+    type: aws_route_table
+    subtype: private
+    module: network
+    name_pattern: "{project}-{env}-private-rt-{az}"
+    description: >
+      AZ별 Private 라우팅 테이블(for_each). 0.0.0.0/0 → 동일 AZ NAT GW.
+    cardinality: "1 per AZ (for_each)"
+    location:
+      file: modules/network/main.tf
+      line: 98
+
+  # ── Bastion ────────────────────────────────
+  - id: bastion-sg
+    type: aws_security_group
+    module: bastion
+    name_pattern: "{project}-{env}-bastion-sg"
+    description: Bastion SG. 인바운드 SSH(22)를 allowed_cidr로만 허용.
+    location:
+      file: modules/bastion/main.tf
+      line: 1
+
+  - id: bastion-ec2
+    type: aws_instance
+    module: bastion
+    name_pattern: "{project}-{env}-bastion"
+    description: >
+      Public 서브넷에 배치된 Bastion EC2. associate_public_ip=true.
+      부팅 시 user_data로 git/Ansible 설치 및 playbook 레포 클론.
+      App/DB EC2의 SSH 진입점이자 Ansible control node.
+    location:
+      file: modules/bastion/main.tf
+      line: 32
+
+  # ── Compute ────────────────────────────────
+  - id: alb-sg
+    type: aws_security_group
+    module: compute
+    name_pattern: "{project}-{env}-alb-sg"
+    description: ALB SG. 인바운드 HTTP(80)/HTTPS(443) 인터넷 전체 허용.
+    location:
+      file: modules/compute/main.tf
+      line: 1
+
+  - id: app-sg
+    type: aws_security_group
+    module: compute
+    name_pattern: "{project}-{env}-app-sg"
+    description: >
+      App EC2 SG. 인바운드: ALB SG로부터 app_port, Bastion SG로부터 SSH(22).
+    location:
+      file: modules/compute/main.tf
+      line: 40
+
+  - id: alb
+    type: aws_lb
+    module: compute
+    name_pattern: "{project}-{env}-alb"
+    description: >
+      인터넷 facing Application Load Balancer. Public 서브넷에 배치.
+      alb-sg 연결. HTTP(80) 리스너 → App Target Group으로 forward.
+    location:
+      file: modules/compute/main.tf
+      line: 90
+
+  - id: alb-target-group
+    type: aws_lb_target_group
+    module: compute
+    name_pattern: "{project}-{env}-tg"
+    description: >
+      App EC2들을 등록하는 Target Group. HTTP, app_port.
+      헬스체크 경로: /health.
+    location:
+      file: modules/compute/main.tf
+      line: 104
+
+  - id: alb-listener-http
+    type: aws_lb_listener
+    module: compute
+    description: "ALB HTTP(80) 리스너. 기본 액션: alb-target-group으로 forward."
+    location:
+      file: modules/compute/main.tf
+      line: 124
+
+  - id: app-ec2
+    type: aws_instance
+    module: compute
+    name_pattern: "{project}-{env}-app-{index}"
+    description: >
+      Private 서브넷에 배치되는 App EC2(count 기반, instance_count개).
+      AZ에 분산 배치(round-robin). 루트 볼륨 gp3/암호화.
+    cardinality: "instance_count개 (count)"
+    location:
+      file: modules/compute/main.tf
+      line: 135
+
+  # ── Database ───────────────────────────────
+  - id: db-sg
+    type: aws_security_group
+    module: database
+    name_pattern: "{project}-{env}-db-sg"
+    description: >
+      DB EC2 SG. 인바운드: App SG로부터 db_port, Bastion SG로부터 SSH(22).
+    location:
+      file: modules/database/main.tf
+      line: 1
+
+  - id: db-ec2
+    type: aws_instance
+    module: database
+    name_pattern: "{project}-{env}-db"
+    description: >
+      Private 서브넷[0]에 배치되는 DB EC2(단일). 루트 볼륨 gp3/암호화.
+      (추가 데이터 EBS 볼륨은 현재 코드에서 주석 처리됨.)
+    location:
+      file: modules/database/main.tf
+      line: 51
+
+# ─────────────────────────────────────────────
+# RELATIONSHIPS
+# ─────────────────────────────────────────────
+# kind 분류:
+#   network    - 네트워크 배치/경로 관계
+#   traffic    - 실제 트래픽 흐름
+#   security   - Security Group 참조/허용
+#   dependency - Terraform 논리적 의존(참조값 전달)
+#   management - 운영/관리 접근 (SSH 등)
+
+relationships:
+
+  # ── Internet → ALB ──────────────────────────
+  - source: internet
+    target: alb
+    kind: traffic
+    protocol: HTTP / HTTPS
+    ports: [80, 443]
+    reason: >
+      alb-sg가 0.0.0.0/0 → 80, 443 인바운드를 허용.
+      ALB가 public-subnet에 배치되어 IGW를 통해 인터넷에서 직접 접근 가능.
+
+  # ── ALB → App EC2 ───────────────────────────
+  - source: alb
+    target: app-ec2
+    kind: traffic
+    protocol: HTTP
+    port: app_port
+    reason: >
+      alb-listener-http가 alb-target-group으로 forward.
+      app-sg가 source=alb-sg로부터 app_port 인바운드를 허용.
+      app-ec2가 alb-target-group에 등록되어 있음(aws_lb_target_group_attachment).
+
+  # ── App EC2 → DB EC2 ────────────────────────
+  - source: app-ec2
+    target: db-ec2
+    kind: traffic
+    protocol: TCP
+    port: db_port
+    reason: >
+      db-sg가 source=app-sg로부터 db_port 인바운드를 허용.
+      compute 모듈이 출력한 app_security_group_id를 database 모듈에 전달.
+
+  # ── Bastion → App EC2 (SSH) ─────────────────
+  - source: bastion-ec2
+    target: app-ec2
+    kind: management
+    protocol: SSH
+    port: 22
+    reason: >
+      app-sg에 source=bastion-sg SSH(22) 인바운드 룰이 존재
+      (aws_security_group_rule.app_ingress_ssh_bastion).
+      bastion_security_group_id는 shared-dev remote_state에서 주입.
+
+  # ── Bastion → DB EC2 (SSH) ──────────────────
+  - source: bastion-ec2
+    target: db-ec2
+    kind: management
+    protocol: SSH
+    port: 22
+    reason: >
+      db-sg에 source=bastion-sg SSH(22) 인바운드 룰이 존재
+      (aws_security_group_rule.db_ingress_ssh_bastion).
+      bastion_security_group_id는 shared-dev remote_state에서 주입.
+
+  # ── Private subnet → Internet (NAT) ─────────
+  - source: private-subnet
+    target: internet
+    kind: network
+    protocol: TCP (outbound)
+    reason: >
+      route-table-private의 0.0.0.0/0 경로가 동일 AZ의 nat-gw를 가리킴.
+      App/DB EC2의 아웃바운드 트래픽(패키지 업데이트 등)이 NAT GW를 통해 인터넷으로 나간다.
+
+  # ── Public subnet → Internet (IGW) ──────────
+  - source: public-subnet
+    target: internet
+    kind: network
+    protocol: TCP (inbound/outbound)
+    reason: >
+      route-table-public의 0.0.0.0/0 경로가 igw를 가리킴.
+      ALB, Bastion이 이 경로를 통해 인터넷과 통신한다.
+
+# ─────────────────────────────────────────────
+# DEPENDENCIES  (Terraform 데이터 흐름)
+# ─────────────────────────────────────────────
+# 런타임 트래픽이 아니라 Terraform 플랜 시 값이 흘러가는 방향.
+
+dependencies:
+
+  # shared-dev → web-service-1-dev (remote_state)
+  - from: shared-dev
+    to: web-service-1-dev
+    via: terraform_remote_state.shared
+    values:
+      - vpc_id
+      - public_subnet_ids
+      - private_subnet_ids
+      - bastion_security_group_id
+    reason: >
+      web-service-1/dev/main.tf의 data.terraform_remote_state.shared가
+      shared/dev/terraform.tfstate를 읽어 네트워크·Bastion 정보를 가져온다.
+
+  # compute → database (module output)
+  - from: compute
+    to: database
+    via: module.compute.app_security_group_id
+    values:
+      - app_security_group_id
+    reason: >
+      database 모듈이 db-sg의 인바운드 룰 source로 app-sg ID가 필요하므로
+      web-service-1/dev/main.tf line 70에서 module.compute.app_security_group_id를 주입.
+
+  # network → bastion (module output)
+  - from: network
+    to: bastion
+    via: module.network outputs
+    values:
+      - vpc_id
+      - public_subnet_ids[0]  # bastion subnet
+    reason: >
+      shared/dev/main.tf에서 module.network.vpc_id 와
+      module.network.public_subnet_ids[0]을 bastion 모듈에 전달.
+
+  # network → compute (via remote_state)
+  - from: network
+    to: compute
+    via: terraform_remote_state.shared → vpc_id, subnet_ids
+    values:
+      - vpc_id
+      - public_subnet_ids
+      - private_subnet_ids
+    reason: >
+      compute 모듈은 ALB를 public 서브넷에, App EC2를 private 서브넷에 배치하기 위해
+      네트워크 모듈의 서브넷 ID를 remote_state를 통해 수신한다.
+
+  # network → database (via remote_state)
+  - from: network
+    to: database
+    via: terraform_remote_state.shared → vpc_id, private_subnet_ids
+    values:
+      - vpc_id
+      - private_subnet_ids
+    reason: >
+      database 모듈은 DB EC2를 private 서브넷에 배치하기 위해
+      네트워크 모듈의 서브넷 ID를 remote_state를 통해 수신한다.

@@ -11,7 +11,6 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  # 인증: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY 환경변수 사용
 }
 
 module "network" {
@@ -38,4 +37,12 @@ output "public_subnet_ids" {
 
 output "private_subnet_ids" {
   value = module.network.private_subnet_ids
+}
+
+output "private_subnet_azs" {
+  value = module.network.private_subnet_azs
+}
+
+output "nat_route_table_ids" {
+  value = module.network.nat_route_table_ids
 }

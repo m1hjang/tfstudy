@@ -53,6 +53,18 @@ data "terraform_remote_state" "db" {
   # }
 }
 
+locals {
+  private_subnet_ids  = data.terraform_remote_state.shared.outputs.private_subnet_ids
+  private_subnet_azs  = data.terraform_remote_state.shared.outputs.private_subnet_azs
+  nat_route_table_ids = data.terraform_remote_state.shared.outputs.nat_route_table_ids
+}
+
+resource "aws_route_table_association" "app" {
+  for_each       = toset(var.app_subnet_cidrs)
+  subnet_id      = local.private_subnet_ids[each.value]
+  route_table_id = local.nat_route_table_ids[local.private_subnet_azs[each.value]]
+}
+
 module "compute" {
   source = "../../../modules/compute"
 
@@ -60,11 +72,13 @@ module "compute" {
   env                       = var.env
   vpc_id                    = data.terraform_remote_state.shared.outputs.vpc_id
   public_subnet_ids         = data.terraform_remote_state.shared.outputs.public_subnet_ids
-  private_subnet_ids        = data.terraform_remote_state.shared.outputs.private_subnet_ids
+  private_subnet_ids        = [for cidr in var.app_subnet_cidrs : local.private_subnet_ids[cidr]]
   instance_type             = var.app_instance_type
   ami_id                    = var.ami_id
   key_name                  = var.key_name
   app_port                  = var.app_port
   instance_count            = var.app_instance_count
   bastion_security_group_id = data.terraform_remote_state.shared.outputs.bastion_security_group_id
+
+  depends_on = [aws_route_table_association.app]
 }

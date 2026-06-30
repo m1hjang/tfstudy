@@ -1,12 +1,6 @@
 locals {
-  # private_subnet_ids 리스트를 for_each용 맵으로 변환 (index → subnet_id)
-  db_subnet_map = { for idx, id in var.private_subnet_ids : tostring(idx) => id }
-
-  # etcd: private subnet들 + 쿼럼용 추가 서브넷 (3개 이상, 홀수 보장)
-  etcd_subnet_map = {
-    for idx, id in concat(var.private_subnet_ids, [var.etcd_extra_subnet_id]) :
-    tostring(idx) => id
-  }
+  db_subnet_map   = { for idx, id in var.db_subnet_ids : tostring(idx) => id }
+  etcd_subnet_map = { for idx, id in var.etcd_subnet_ids : tostring(idx) => id }
 }
 
 # ── DB Security Group ─────────────────────────────────────────────────────────

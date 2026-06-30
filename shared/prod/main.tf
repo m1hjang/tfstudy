@@ -28,9 +28,9 @@ provider "aws" {
 module "network" {
   source = "../../modules/network"
 
-  project         = var.project
-  env             = var.env
-  vpc_cidr        = var.vpc_cidr
+  project        = var.project
+  env            = var.env
+  vpc_cidr       = var.vpc_cidr
   public_subnets  = var.public_subnets
   private_subnets = var.private_subnets
 }

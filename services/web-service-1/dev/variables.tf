@@ -34,6 +34,11 @@ variable "app_port" {
   default = 8080
 }
 
+variable "app_subnet_cidrs" {
+  type        = list(string)
+  description = "CIDRs of private subnets used as app tier. These subnets get RTAs to NAT GW for outbound internet."
+}
+
 variable "ACCESS_KEY" {
   type = string
 }

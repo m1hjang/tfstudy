@@ -17,12 +17,12 @@ variable "vpc_cidr" {
 
 variable "public_subnets" {
   type        = map(string)
-  description = "key = CIDR, value = AZ"
+  description = "key = CIDR, value = AZ. Public subnets where NAT GWs are placed."
 }
 
 variable "private_subnets" {
   type        = map(string)
-  description = "key = CIDR, value = AZ"
+  description = "key = CIDR, value = AZ. All private subnets. Workload assignment is each service's responsibility."
 }
 
 variable "bastion_ami_id" {
