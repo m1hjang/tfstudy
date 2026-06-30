@@ -39,6 +39,20 @@ data "terraform_remote_state" "shared" {
   # }
 }
 
+data "terraform_remote_state" "db" {
+  backend = "local"
+  config = {
+    path = "${path.module}/../../db-service-1/prod/terraform.tfstate"
+  }
+
+  # backend = "s3"
+  # config = {
+  #   bucket = "YOUR-TF-STATE-BUCKET"
+  #   key    = "services/db-service-1/prod/terraform.tfstate"
+  #   region = "ap-northeast-2"
+  # }
+}
+
 module "compute" {
   source = "../../../modules/compute"
 
@@ -53,20 +67,4 @@ module "compute" {
   app_port                  = var.app_port
   instance_count            = var.app_instance_count
   bastion_security_group_id = data.terraform_remote_state.shared.outputs.bastion_security_group_id
-}
-
-module "database" {
-  source = "../../../modules/database"
-
-  project                   = var.project
-  env                       = var.env
-  vpc_id                    = data.terraform_remote_state.shared.outputs.vpc_id
-  private_subnet_ids        = data.terraform_remote_state.shared.outputs.private_subnet_ids
-  app_security_group_id     = module.compute.app_security_group_id
-  bastion_security_group_id = data.terraform_remote_state.shared.outputs.bastion_security_group_id
-  instance_type             = var.db_instance_type
-  ami_id                    = var.ami_id
-  key_name                  = var.key_name
-  db_port                   = var.db_port
-  data_volume_size_gb       = var.db_volume_size_gb
 }

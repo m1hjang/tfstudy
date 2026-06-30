@@ -12,7 +12,7 @@ variable "env" {
 }
 
 variable "ami_id" {
-  type        = string
+  type = string
 }
 
 variable "key_name" {
@@ -32,20 +32,6 @@ variable "app_instance_count" {
 variable "app_port" {
   type    = number
   default = 8080
-}
-
-variable "db_instance_type" {
-  type = string
-}
-
-variable "db_port" {
-  type    = number
-  default = 3306
-}
-
-variable "db_volume_size_gb" {
-  type    = number
-  default = 1
 }
 
 variable "ACCESS_KEY" {

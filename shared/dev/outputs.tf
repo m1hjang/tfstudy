@@ -23,3 +23,8 @@ output "bastion_security_group_id" {
   value       = module.bastion.security_group_id
   description = "Bastion SG ID — 서비스 모듈의 app/db SSH 룰에 전달"
 }
+
+output "private_route_table_ids" {
+  value       = module.network.private_route_table_ids
+  description = "AZ → private route table ID 맵"
+}

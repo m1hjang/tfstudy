@@ -32,17 +32,3 @@ variable "app_port" {
   type    = number
   default = 8080
 }
-
-variable "db_instance_type" {
-  type = string
-}
-
-variable "db_port" {
-  type    = number
-  default = 5432
-}
-
-variable "db_volume_size_gb" {
-  type    = number
-  default = 100
-}

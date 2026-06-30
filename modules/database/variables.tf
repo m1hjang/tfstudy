@@ -10,17 +10,29 @@ variable "vpc_id" {
   type = string
 }
 
-variable "private_subnet_ids" {
-  type = list(string)
+variable "vpc_cidr" {
+  type        = string
+  description = "VPC CIDR — DB SG 인바운드 룰에 사용 (app SG 대신 CIDR 기반)"
 }
 
-variable "app_security_group_id" {
+variable "private_subnet_ids" {
+  type        = list(string)
+  description = "DB 인스턴스를 배치할 private subnet ID 목록 (서브넷당 DB 1개, etcd 1개)"
+}
+
+variable "etcd_extra_subnet_id" {
   type        = string
-  description = "App EC2 SG — DB SG allows inbound from this only"
+  description = "홀수 쿼럼용 추가 etcd 인스턴스를 배치할 서브넷 ID"
 }
 
 variable "instance_type" {
-  type = string
+  type        = string
+  description = "DB EC2 인스턴스 타입"
+}
+
+variable "etcd_instance_type" {
+  type        = string
+  description = "etcd EC2 인스턴스 타입 (경량 권장, 예: t3.micro)"
 }
 
 variable "ami_id" {
@@ -28,7 +40,8 @@ variable "ami_id" {
 }
 
 variable "key_name" {
-  type = string
+  type    = string
+  default = null
 }
 
 variable "db_port" {
@@ -41,13 +54,8 @@ variable "data_volume_size_gb" {
   default = 1
 }
 
-variable "ssh_allowed_cidr" {
-  type    = string
-  default = "10.0.0.0/8"
-}
-
 variable "bastion_security_group_id" {
   type        = string
   default     = null
-  description = "Bastion SG ID — 제공 시 Bastion → DB EC2 SSH 룰(SG 기반)을 추가"
+  description = "Bastion SG ID — 제공 시 Bastion → DB/etcd SSH 룰(SG 기반)을 추가"
 }
